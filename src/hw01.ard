@@ -18,15 +18,21 @@
    second' = flip (second 0)
 -}
 
+\func second (_ y _ : Nat) : Nat => y
+\func apply (f : Nat -> Nat) (x : Nat) => f x
+\func compose (f : Nat -> Nat) (g : Nat -> Nat) (x : Nat) : Nat => f (g x)
+\func flip (f : Nat -> Nat -> Nat) (x y : Nat) => f y x
+\func second' => flip (second 0)
+
 -- 3. Расставьте приоритеты функций f1, f2, f3, f4, f5 и f6 так, чтобы функция test проходила тайпчекинг.
 
 \import lect01 \hiding (+,*)
 
 \func f1 (x y : Nat) => x
 \func f2 : Nat => 0
-\func f3 (f : Nat -> Nat) (z : Nat) : Int => 0
+\func \infix 5 f3 (f : Nat -> Nat) (z : Nat) : Int => 0
 \func f4 : Nat => 0
-\func f5 => f1
+\func \infix 6 f5 => f1
 \func f6 => f4
 
 \func test => f1 f2 f3 f4 f5 f6
@@ -40,18 +46,60 @@
 
 -- 5. Определите || через if.
 
-\func \infixr 2 || (x y : Bool) : Bool => {?}
+\func \infixr 2 || (x y : Bool) : Bool => \case if x 1 (if y 1 0) \with {
+  | zero => false
+  | _ => true
+}
+
+\func ||test1 : true || false = true => idp
+\func ||test2 : false || false = false => idp
+\func ||test3 : false || true = true => idp
 
 -- 6. Определите возведение в степень и факториал для натуральных чисел.
 
 \open Nat \hiding (-,div) -- Здесь лежат + и *.
 
-\func \infixr 8 ^ (x y : Nat) => {?}
+\func \infixr 8 ^ (x y : Nat) : Nat \elim y
+  | zero => 1
+  | suc y' => x * x ^ y'
 
-\func fac (x : Nat) => {?}
+\func ^test1 : 2 ^ 1 = 2 => idp
+\func ^test2 : 2 ^ 0 = 1 => idp
+\func ^test3 : 2 ^ 3 = 8 => idp
+
+\func fac (x : Nat) : Nat \elim x
+  | zero => 1
+  | suc x' \as x => x * fac x'
+
+\func facTest1 : fac 0 = 1 => idp
+\func facTest2 : fac 1 = 1 => idp
+\func facTest3 : fac 3 = 6 => idp
 
 -- 7. Определите mod и gcd.
 
-\func mod (x y : Nat) => {?}
+\func \infix 6 mod (x y : Nat) => mod' x x y
+  \where
+    \func mod' (s x y : Nat) : Nat \elim s
+      | zero => zero
+      | suc s' => \case x < y \with {
+        | true => x
+        | false => mod' s' (x - y) y
+      }
 
-\func gcd (x y : Nat) => {?}
+\func modTest1 : mod 0 1 = 0 => idp
+\func modTest2 : mod 1 1 = 0 => idp
+\func modTest3 : mod 3 2 = 1 => idp
+\func modTest4 : mod 10 4 = 2 => idp
+\func modTest5 : mod 15 5 = 0 => idp
+\func modTest6 : mod 3 5 = 3 => idp
+
+\func gcd (x y : Nat) => gcd' (x + y) x y
+  \where
+    \func gcd' (s x y : Nat) : Nat \elim s
+      | zero => zero
+      | suc s' => \case y \with {
+        | zero => x
+        | suc _ => gcd' s' y (x mod y)
+      }
+
+\func gcdTest1 : gcd 10 15 = 5 => idp
