@@ -1,44 +1,98 @@
 \import Utils
+\import hw01 (fac)
 
 -- 1. Определите полиморфный tail для списков.
 
+\func tail {A : \Type} (xs : List A) : List A
+  | nil => nil
+  | :: _ xs => xs
+
 -- 2. Реализуйте любой (but choose wisely) алгоритм сортировки. Функцию сравнения можно принимать в качестве аргумента.
+
+\func insertionSort {A : \Type} (less : A -> A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | :: x xs' => insert less x (insertionSort less xs')
+  \where
+    \func insert {A : \Type} (less : A -> A -> Bool) (x : A) (xs : List A) : List A \elim xs
+      | nil => x :: nil
+      | :: x' xs => \case less x x' \with {
+        | true => x :: x' :: xs
+        | false => x' :: insert less x xs
+      }
+
+\func less (x : Nat) (y : Nat) : Bool
+  => \case x Nat.- y \with {
+    | pos n => false
+    | neg 0 => false
+    | neg (suc _) => true
+  }
+
+\func insertionSortTest :
+  insertionSort less (3 :: 1 :: 2 :: 0 :: 2 :: 5 :: 4 :: nil) = (0 :: 1 :: 2 :: 2 :: 3 :: 4 :: 5 :: nil)
+  => idp
 
 -- 3. Докажите ассоциативность && и ||.
 
-\func &&-assoc (x y z : Bool) : (x && y) && z = x && (y && z) => {?}
+\func &&-assoc (x y z : Bool) : (x && y) && z = x && (y && z) \elim x
+  | true => idp
+  | false => idp
 
-\func ||-assoc (x y z : Bool) : (x || y) || z = x || (y || z) => {?}
+\func ||-assoc (x y z : Bool) : (x || y) || z = x || (y || z) \elim x
+  | true => idp
+  | false => idp
 
 -- 4. Докажите, что fac 3 равно 6.
+
+\func fac3eq6 : fac 3 = 6 => idp
 
 -- 5. Докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
 -- t1 : (P and Q -> R) -> P -> Q -> R
-\func t1 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => {?}
+\func t1 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => f (p, q)
 
 -- t2 : (P -> R) -> (Q -> R) -> P or Q -> R
-\func t2 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : Either P Q) : R => {?}
+\func t2 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : Either P Q) : R \elim h
+  | inl a => f a
+  | inr b => g b
 
 -- t3 : ((P -> Q -> R) -> P) -> (P -> R) -> R
-\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R => {?}
+\func t3 {P Q R : \Type} (f : (P -> Q -> R) -> P) (g : P -> R) : R => g (f \lam p _ => g p)
 
 -- 6. Сформулируйте и докажите следующие пропозициональные тавтологии (choose 2 out of 3).
 
 -- t4 : (P -> Q -> R) -> P and Q -> R
+
+\func t4 {P Q R : \Type} (f : P -> Q -> R) (s : \Sigma P Q) : R => f s.1 s.2
+
 -- t5 : (P or Q -> P and Q) -> (P -> Q) and (Q -> P)
+
+\func t5 {P Q : \Type} (f : Either P Q -> \Sigma P Q) : \Sigma (P -> Q) (Q -> P) =>
+  ( \lam p => (f (inl p)).2
+  , \lam q => (f (inr q)).1
+  )
+
 -- t6 : ((((P -> Q) -> P) -> P) -> Q) -> Q
+
+\func t6 {P Q : \Type} (pqppq : (((P -> Q) -> P) -> P) -> Q) : Q =>
+  pqppq (\lam pqp => pqp \lam p => pqppq \lam pqp => pqp \lam p => pqppq \lam _ => p)
 
 -- 7. Докажите следующие утверждения.
 
 -- s1 : Если для любого x : Nat верно P(x), то существует x : Nat для которого P(x) верно.
-\func s1 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => {?}
+\func s1 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => (0, h 0)
 
 -- s2 : Если не существует x : Nat такого, что верно P(x), то P(3) не верно.
-\func s2 (P : Nat -> \Type) (h : \Sigma (x : Nat) (P x) -> Empty) : P 3 -> Empty => {?}
+\func s2 (P : Nat -> \Type) (h : \Sigma (x : Nat) (P x) -> Empty) : P 3 -> Empty => \lam p3 => h (3, p3)
 
 -- 8. Сформулируйте и докажите следующие утверждения.
 
 -- s3 : Если для всех x : Nat верно, что P(x) влечет Q(x), и существует x : Nat для которого верно P(x), то существует x : Nat для которого верно Q(x).
+\func s3 (P Q : Nat -> \Type) (f : \Pi (x : Nat) -> P x -> Q x) (x : \Sigma (x : Nat) (P x)) : \Sigma (x : Nat) (Q x)
+  => (x.1, f x.1 x.2)
 
 -- s4 : Если для всех x : Nat либо не верно P(x), либо не верно Q(x), то P(3) влечет, что Q(3) не верно.
+\func s4 (P Q : Nat -> \Type) (f : \Pi (x : Nat) -> Either (P x -> Empty) (Q x -> Empty)) (p : P 3) : Q 3 -> Empty
+  => \case f 3 \with {
+    | inl g => absurd (g p)
+    | inr h => h
+  }
