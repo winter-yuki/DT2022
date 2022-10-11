@@ -1,3 +1,4 @@
+\import Debug.Meta
 \import Function.Meta
 \import Utils
 \import lect04 \hiding (J, Vec, nil, sym, v++)
@@ -61,16 +62,16 @@
 
 \data Tree (A : \Type) (n : Nat) \elim n
   | zero => leaf
-  | suc n => node A (Maybe (Tree A n)) (Maybe (Tree A n))
+  | suc n => node A (Either (Tree A 0) (Tree A n)) (Either (Tree A 0) (Tree A n))
 
 -- определите функцию, возвращающую высоту дерева.
 
 \func height {A : \Type} (n : Nat) (t : Tree A n) : Fin (suc n)
   | 0, leaf => fzero
   | suc n, t => \case t \with {
-    | node x nothing nothing => fsuc fzero
-    | node x (just l) _ => fsuc (height n l)
-    | node x _ (just r) => fsuc (height n r)
+    | node x (inl leaf) (inl leaf) => fsuc fzero
+    | node x (inr l) _ => fsuc (height n l)
+    | node x _ (inr r) => fsuc (height n r)
   }
 
 -- Optional task
@@ -80,14 +81,7 @@
 
 \func coin {A : \Type} {n : Nat} (f : Fin n -> A) : Vec A n
   | {A}, {0}, f => vnil
-  | {A}, {suc n}, f => vcons (f $ toFin n) (coin $ narrow f)
-  \where {
-    \func toFin (n : Nat) : Fin (suc n)
-      | 0 => fzero
-      | suc n => fsuc (toFin n)
-
-    \func narrow {A : \Type} {n : Nat} (f : Fin (suc n) -> A) (x : Fin n) : A => f (n `toFin)
-  }
+  | {A}, {suc n}, f => vcons (f fzero) (coin \lam i => f (fsuc i))
 
 -- Optional task
 -- 8. Определите тип матриц и ряд функций над ними.
@@ -113,7 +107,12 @@
 
 -- 9. Определите факториал через Nat-rec.
 
-\func fac-rec (n : Nat) : Nat => Nat-rec Nat 1 (*) n
+\func fac-rec (n : Nat) : Nat => Nat-rec Nat 1 (\lam n m => suc n * m) n
+
+\func func-rec-test1 : fac-rec 0 = 1 => idp
+\func func-rec-test2 : fac-rec 1 = 1 => idp
+\func func-rec-test3 : fac-rec 3 = 6 => idp
+\func func-rec-test4 : fac-rec 4 = 24 => idp
 
 -- 10. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
 
@@ -170,10 +169,10 @@
 
 \func List-rec (A P : \Type)
                (ini : P)
-               (f : A -> P -> P)
+               (ind : A -> List A -> P -> P)
                (xs : List A) : P \elim xs
   | nil => ini
-  | :: x xs => f x (List-rec A P ini f xs)
+  | :: x xs => ind x xs (List-rec A P ini ind xs)
 
 -- 13. Докажите pmap при помощи паттерн матчинга с idp.
 
