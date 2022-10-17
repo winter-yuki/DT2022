@@ -1,5 +1,6 @@
 \import Arith.Nat (NatSemiring)
 \import Utils
+\import lect05
 \open NatSemiring(+-comm)
 
 -- 1. Докажите, что vnil является нейтральным элементом для v++.
@@ -9,7 +10,12 @@
 
 -- 2. Докажите, что (\lam x => not (not x)) = (\lam x => x).
 
-\func notNotId : (\lam x => not (not x)) = (\lam x => x) => {?}
+\func notNotId : (\lam x => not (not x)) = (\lam x => x) => funExt (\lam _ => Bool) not-not
+  \where {
+    \func not-not (x : Bool) : not (not x) = x
+      | true => idp
+      | false => idp
+  }
 
 -- 3. Докажите, что fac не равен suc.
 
@@ -19,28 +25,36 @@
   | 0 => 1
   | suc n => suc n * fac n
 
-\func fac/=suc (p : fac = suc) : Empty => {?}
+\func fac/=suc (p : fac = suc) : Empty => \case funExt-rev (\lam _ => Nat) p 1
+  \where {
+    \func funExt-rev {A : \Type} (B : A -> \Type) {f g : \Pi (a : A) -> B a}
+                     (p : f = g) : \Pi (a : A) -> f a = g a
+      => \lam a i => p i a
+  }
 
 -- 4. Докажите, что left = right, не используя transport, coe и паттерн матчинг с idp.
 
-\func left=right : left = right => {?}
+\func left=right : left = right => \lam i => i
 
 -- 5. Докажите, что если a = a' и b = b', то (a,b) = (a',b'), не используя transport, coe и паттерн матчинг с idp.
 
-\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b') => {?}
+\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b')
+  => \lam i => (p i, q i)
 
 -- 6. Докажите, что если p = p', то p.1 = p'.1, не используя transport, coe и паттерн матчинг с idp.
 
-\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1 => {?}
+\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1
+  => \lam i => (t i).1
 
 -- 7. Докажите pmap2, не используя transport, coe и паттерн матчинг с idp.
 
-\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b'
+  => \lam i => f (p i) (q i)
 
 -- 8. Мы видели как определить transport через coe. Определите частный случай coe через transport.
 
-\func coe0 (A : I -> \Type) (a : A left) : A right => {?}
+\func coe0 (A : I -> \Type) (a : A left) : A right => transport A left=right a
 
 -- 9. Определите функцию B right -> B left.
 
-\func Itr' {B : I -> \Type} (b : B right) : B left => {?}
+\func Itr' {B : I -> \Type} (b : B right) : B left => transport B (sym left=right) b
