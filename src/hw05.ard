@@ -1,7 +1,5 @@
-\import Arith.Nat (NatSemiring)
 \import Utils
 \import lect05
-\open NatSemiring(+-comm)
 
 -- 1. Докажите, что vnil является нейтральным элементом для v++.
 
