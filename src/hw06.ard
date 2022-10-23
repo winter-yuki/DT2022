@@ -1,45 +1,127 @@
+\import Debug.Meta
+\import Function.Meta
+\import Meta
+\import Paths.Meta
 \import Utils
+\import hw01 (gcd)
+\import hw05
+\import lect05
 \import lect06
 \open Nat(+)
 
 -- 1. Определите функцию swap несколькими способами.
 
 -- При помощи \cowith и доступа к полям.
-\func swap {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap {A B : \Type} (p : Pair A B) : Pair B A \cowith
+  | fst_ => p.snd_
+  | snd_ => p.fst_
 
 -- При помощи \new и паттерн матчинга.
-\func swap' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap' {A B : \Type} (p : Pair A B) : Pair B A
+  | (a,b) => \new Pair {
+    | fst_ => b
+    | snd_ => a
+  }
 
 -- При помощи \new и доступа к полям.
-\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => {?}
+\func swap'' {A B : \Type} (p : Pair A B) : Pair B A => \new Pair {
+  | fst_ => p.snd_
+  | snd_ => p.fst_
+}
 
 -- 2. Докажите, что swap (swap p) = p.
 
-\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => {?}
+\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p
+  | (a,b) => idp
 
 -- 3. Докажите, что тип PosNat 0 пустой, а тип PosNat 1 нет.
 
-\func zero-isNotPos (p : PosNat 0) : Empty => {?}
+\lemma zero-isNotPos (p : PosNat 0) : Empty => p.p
 
-\func one-isPos : PosNat 1 => {?}
+\func one-isPos : PosNat 1 => \new PosNat 1 ()
 
 -- 4. Определите \record, состоящий из пар взаимно простых натуральных чисел.
 --    Определите тип, состоящий из натуральных чисел, взаимно простых с 60.
 
+\record Coprime (x y : Nat) (p : gcd x y = 0)
+
+\func coprime60 => Coprime 60
+
 -- 5. Закончите определение класса монад. Этот класс должен содержать все монадные законы и реализовывать все поля из класса функторов.
 
-\class Monad \extends Functor
+\class Monad \extends Functor {
   | return {A : \Set} : A -> F A
   | \infixl 1 >>= {A B : \Set} : F A -> (A -> F B) -> F B
+  | return-left {A B : \Set} (k : A -> F B) (x : A) : (return x >>= k) = k x
+  | return-right {A : \Set} (m : F A) : (m >>= return) = m
+  | >>=-assoc {A B C : \Set} (m : F A) (k : A -> F B) (k' : B -> F C)
+              : ((m >>= k) >>= k') = (m >>= \lam x => k x >>= k')
+  \default fmap {A B : \Set} (f : A -> B) (x : F A) : F B => x >>= \lam x => return (f x)
+  \default fmap-id {A : \Set} (x : F A) : fmap (\lam a => a) x = x => return-right x
+  \default fmap-comp {A B C : \Set} (f : A -> B) (g : B -> C) (x : F A)
+                     : fmap (\lam a => g (f a)) x = fmap g (fmap f x)
+      => rewrite (>>=-assoc x (\lam x => return (f x)) (\lam x => return (g x)))
+      $ pmap (x >>=) $ funExt (\lam _ => F C) (\lam x => sym $ return-left (\lam x => return (g x)) _)
+}
 
 -- 6. Определите \instance Monad для Maybe.
 
-\instance MaybeMonad : Monad Maybe => {?}
+\instance MaybeMonad : Monad Maybe
+  | return => just
+  | >>= {A B : \Set} (m : Maybe A) (k : A -> Maybe B) : Maybe B \elim m {
+    | nothing => nothing
+    | just x => k x
+  }
+  | return-left k x => idp
+  | return-right {A : \Set} (m : Maybe A) : (m >>= just) = m \elim m {
+    | nothing => idp
+    | just _ => idp
+  }
+  | >>=-assoc {A B C : \Set} (m : Maybe A) (k : A -> Maybe B) (k' : B -> Maybe C)
+    : ((m >>= k) >>= k') = (m >>= \lam x => k x >>= k') \elim m {
+    | nothing => idp
+    | just a => idp
+  }
 
 -- 7. Определите \instance Monad для State и State'.
 
 \record State (S A : \Type)
   | state : S -> \Sigma S A
 
+\instance StateMonad (S : \Set) : Monad (State S)
+  | return {A : \Set} (x : A) : State S A => \new State { | state => \lam s => (s, x) }
+  | >>= {A B : \Set} (m : State S A) (k : A -> State S B) : State S B \cowith {
+    | state => \lam s => \let (s', x) => m.state s \in state {k x} s'
+  }
+  | return-left {A B : \Set} (k : A -> State S B) (x : A) : (return x >>= k) = k x => idp
+  | return-right m => idp
+  | >>=-assoc m k k' => idp
+
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
+
+\instance State'Monad (S : \Set) : Monad (State' S)
+  | return {A : \Set} (x : A) : State' S A => state' \lam s => (s, x)
+  | >>= {A B : \Set} (m : State' S A) (k : A -> State' S B) : State' S B
+    => state' \lam s => \let (s', x) => runState' m s \in runState' (k x) s'
+  | return-left {A B : \Set} (k : A -> State' S B) (x : A) : (return x >>= k) = k x
+    => unfold (>>=) $ rewrite (lemma1 _ x) (lemma3 (k x))
+  | return-right {A : \Set} (m : State' S A) : (m >>= return) = m \elim m {
+    | state' m' => idp
+  }
+  | >>=-assoc {A B C : \Set} (m : State' S A) (k : A -> State' S B) (k' : B -> State' S C)
+              : ((m >>= k) >>= k') = (m >>= \lam x => k x >>= k') => idp
+
+\func runState' {S A : \Type} (m : State' S A) (x : S) : \Sigma S A \elim m
+  | state' m' => m' x
+
+\func lemma1 {A B C : \Set} (f : A -> B) (x : C)
+  : (\lam s => \let (s', x) => (s, x) \in f s) = (\lam s => f s)
+  => idp
+
+\func lemma2 {S A : \Type} (m : State' S A)
+  : state' \lam s => \case m \with { | state' m' => m' s } = m \elim m
+  | state' _x => idp
+
+\func lemma3 {A S : \Type} (m : State' S A) : state' (runState' m) = m \elim m
+  | state' _ => idp
