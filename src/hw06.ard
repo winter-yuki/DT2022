@@ -31,8 +31,7 @@
 
 -- 2. Докажите, что swap (swap p) = p.
 
-\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p
-  | (a,b) => idp
+\func swap-involutive {A B : \Type} (p : Pair A B) : swap (swap p) = p => idp
 
 -- 3. Докажите, что тип PosNat 0 пустой, а тип PosNat 1 нет.
 
@@ -43,7 +42,7 @@
 -- 4. Определите \record, состоящий из пар взаимно простых натуральных чисел.
 --    Определите тип, состоящий из натуральных чисел, взаимно простых с 60.
 
-\record Coprime (x y : Nat) (p : gcd x y = 0)
+\record Coprime (x y : Nat) (p : gcd x y = 1)
 
 \func coprime60 => Coprime 60
 
