@@ -1,21 +1,115 @@
-\import Data.Bool
-\import Data.List \hiding (headDef)
-\import Utils (<->)
+\import Function.Meta
+\import Logic.Meta
+\import Meta
+\import Paths.Meta
+\import Utils
+\import hw07
+\import lect07 (filter)
 \import lect08
 \import Order.LinearOrder
 \open LinearOrder
+\import Data.List \using (List \as DList, nil \as dnil, :: \as d::) \hiding (++, length)
 
 -- 1. Реализуйте функцию filter и докажите ее корректность, то есть, что выполнены следующие условия:
 --    * filter p xs является подсписком xs
 --    * Все элементы filter p xs удовлетворяют предикату p
 --    * Любой подсписок xs с тем же свойством является подсписком filter p xs
 
+\func filter-sublist {A : \Type} (p : A -> Bool) (xs : List A) : Sublist (filter p xs) xs
+  => filtered-sublist p xs
+
+\data AllTrue {A : \Type} (p : A -> Bool) (xs : List A) \elim xs
+  | nil => all-nil
+  | :: x xs => all-:: (p x = true) (AllTrue p xs)
+
+\func filter-all {A : \Type} (p : A -> Bool) (xs : List A) : AllTrue p (filter p xs)
+  | p, nil => all-nil
+  | p, :: a xs => mcases {_} {arg addPath} \with {
+    | true, p1 => all-:: (rewrite p1 idp) (filter-all p xs)
+    | false, p1 => filter-all p xs
+  }
+
+\func filter-subsub {A : \Type} (p : A -> Bool) (xs : List A) (ss : List A)
+                    (sub : Sublist ss xs) (all : AllTrue p ss) : Sublist ss (filter p xs)
+  | p, xs, List.nil, sublist-nil-_, all-nil => sublist-nil-_
+  | p, List.:: y xs, List.nil, sublist-skip sub, all-nil => mcases \with {
+    | true => sublist-nil-_
+    | false => sublist-nil-_
+  }
+  | p, List.:: x xs, List.:: s ss, sublist-skip sub, all-:: t all => mcases {_} {arg addPath} \with {
+    | true, p1 => sublist-skip $ filter-subsub p xs (s :: ss) sub (all-:: t all)
+    | false, p1 => filter-subsub p xs (s :: ss) sub (all-:: t all)
+  }
+  | p, List.:: y xs, List.:: x ss, sublist-= p1 sub, all-:: t all => mcases {_} {arg addPath} \with {
+    | true, p2 => sublist-= p1 $ filter-subsub p xs ss sub all
+    | false, p2 => rewriteF p1 at t $ rewriteF p2 at t $ contradiction
+  }
+
 -- 2. Докажите, что Perm l1 l2 тогда и только тогда, когда Insertion.sort l1 = Insertion.sort l2.
+
+\func perm->sort {A : \Set} {d : Dec A} {xs ys : DList A} (perm : Perm xs ys) : Insertion.sort xs = Insertion.sort ys \elim xs, ys, perm
+  | dnil, dnil, perm-nil => idp
+  | d:: x xs, d:: y ys, perm-cons p perm => rewrite p $ pmap (Insertion.sort.insert y) $ perm->sort perm
+  | d:: x (d:: x' xs), d:: y (d:: y' ys), perm-swap p p1 p2 =>
+    rewrite p $ rewrite p1 $ rewrite p2 $ Insertion.sort-perm.insert-comm y' y (Insertion.sort ys)
+  | xs, ys, perm-trans perm1 perm2 => perm->sort perm1 *> perm->sort perm2
+
+\func perm-= {A : \Set} {xs ys : DList A} (p : xs = ys) : Perm xs ys
+  | {A}, {dnil}, {dnil}, p => perm-nil
+  | {A}, {d:: x xs}, {d:: y ys}, p => perm-cons (pmap (headOrDefault x) p) $ perm-= (pmap tail p)
+  \where {
+    \func headOrDefault {A : \Type} (default : A) (xs : DList A) : A \elim xs
+      | dnil => default
+      | d:: x xs => x
+
+    \func tail {A : \Type} (xs : DList A) : DList A \elim xs
+      | dnil => dnil
+      | d:: x xs => xs
+  }
+
+\func perm-sym {A : \Set} {xs ys : DList A} (p : Perm xs ys) : Perm ys xs
+  | {A}, {dnil}, {dnil}, perm-nil => perm-nil
+  | {A}, {d:: x xs}, {d:: y ys}, perm-cons p p1 => perm-cons (sym p) $ perm-sym p1
+  | {A}, {d:: x (d:: x' xs)}, {d:: y (d:: y' ys)}, perm-swap p p1 p2 => perm-swap (sym p1) (sym p) (sym p2)
+  | perm-trans p1 p2 => perm-trans (perm-sym p2) (perm-sym p1)
+
+\func sort->perm {A : \Set} {d : Dec A} {xs ys : DList A} (p : Insertion.sort xs = Insertion.sort ys) : Perm xs ys \elim xs, ys, p
+  | dnil, dnil, p => perm-nil
+  | dnil, d:: y ys, p => perm-trans (perm-= p) (perm-sym $ Insertion.sort-perm (d:: y ys))
+  | d:: x xs, dnil, p => perm-trans (Insertion.sort-perm (d:: x xs)) (perm-= p)
+  | d:: x xs, d:: y ys, p =>
+    \have
+      | p1 : Perm (d:: x xs) (Insertion.sort.insert x (Insertion.sort xs)) => Insertion.sort-perm (d:: x xs)
+      | p2 : Perm (Insertion.sort.insert y (Insertion.sort ys)) (d:: y ys) => perm-sym $ Insertion.sort-perm (d:: y ys)
+    \in rewriteF p at p1 $ perm-trans p1 p2
 
 -- 3. Докажите, что спецификация "результат является перестановкой входа и отсортирован" является полной для функции sort.
 
-\func completeness {A : Dec} (sort : List A -> List A) (l : List A) (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l
-  => {?}
+\func completeness {A : Dec} (sort : DList A -> DList A) (l : DList A)
+                   (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l \elim l
+  | dnil => \case sort dnil \as b, idp : sort dnil = b \return b = Insertion.sort dnil \with {
+    | dnil, _x => idp
+    | d:: x xs, _x => rewriteF _x at s $ rewriteF _x at p $ {?}
+  }
+  | d:: x xs => {?}
+  \where {
+    \func perm-nil {A : Dec} {xs : DList A} (p : Perm dnil xs) : xs = dnil \elim xs, p
+      | dnil, Perm.perm-nil => idp
+      | d:: x xs, perm-trans p1 p2 => \let | q => perm-nil p1 \in rewriteF q at p2 $ {?}
+      | dnil, perm-trans p1 p2 => idp -- \ -- rewriteF q at p2 $ perm-nil p2
+  }
+--\case sort l \as b, idp : sort l = b \return b = Insertion.sort l \with {
+--    | dnil, p1 => {?}
+--    | d:: a b, p1 => {?}
+--  }
+--\case sort l \as b, idp : sort l = b \return b = Insertion.sort l \with {
+--    | dnil, eq => {?} -- rewriteF eq at p $ rewriteF eq at s $ {?} -- \let | q => sorted->sorted s \in {?}
+----      \case l \as b, idp : l = b \return Data.List.nil = Insertion.sort b \with {
+----        | dnil, eq' => idp
+----        | d:: a l, eq' => {?}
+----      }
+--    | d:: x xs, eq => rewriteF eq at p $ rewriteF eq at s $ {?}
+--  }
 
 -- 4. Определите факториал через хвостовую рекурсию.
 --    Докажите, что он равен обычному определению факториала.
@@ -25,8 +119,15 @@
 
 \data Paren | Left | Right
 
-\func isBalanced (xs : List Paren) : Bool
-  => {?}
+\func isBalanced (xs : List Paren) : Bool => aux 0 xs
+  \where {
+    \func aux (n : Nat) (xs : List Paren) : Bool
+      | 0, nil => true
+      | suc n, nil => false
+      | n, :: Left xs => aux (suc n) xs
+      | 0, :: Right xs => false
+      | suc n, :: Right xs => aux n xs
+  }
 
 \data Balanced (xs : List Paren) \with
   | nil => nil-balanced
@@ -34,4 +135,20 @@
   | xs => append-balanced {ys zs : List Paren} (Balanced ys) (Balanced zs) (xs = ys ++ zs)
 
 \func isBalanced-correct (xs : List Paren) : (isBalanced xs = true) <-> Balanced xs
-  => {?}
+  => (isBalanced->Balanced, Balanced->isBalanced)
+--    \lam p => \case xs \as l, idp : xs = l \return Balanced l \with {
+--      | nil, p' => nil-balanced
+--      | :: x xs, p' => \case \elim x \with {
+--        | Left => {?}
+--        | Right => {?}
+--      }
+--    }
+
+\func isBalanced->Balanced {xs : List Paren} (b : isBalanced xs = true) : Balanced xs
+  | {nil}, b => nil-balanced
+  | {:: x xs}, b => \case x \as b, idp : x = b \with {
+    | Left, p => rewrite p $ rewriteF p at b $ {?}
+    | Right, p => {?}
+  }
+
+\func Balanced->isBalanced {xs : List Paren} (b : Balanced xs) : isBalanced xs = true => {?}
