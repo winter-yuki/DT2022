@@ -1,37 +1,128 @@
 \import Data.List
+\import Function.Meta
+\import Logic.Meta
+\import Meta
 \import Order.LinearOrder
-\import Utils (Maybe, just, maybe, nothing)
-\import lect07(Decide)
+\import Paths.Meta
+\import Utils (Empty, Maybe, just, maybe, nothing, pmap)
+\import lect02 (absurd)
+\import lect05
+\import lect07(Decide, no, yes)
 \import lect09
 \open LinearOrder
 
 -- 1. Закончите определение \instance Monad для Term.
 
 \instance TermMonad : Monad Term
-  | return => var
+  | return {A : \Set} (x : A) : Term A => var x
   | >>= {A B : \Set} (t : Term A) (k : A -> Term B) : Term B \elim t {
     | var v => k v
     | unit => unit
     | app t1 t2 => app (t1 >>= k) (t2 >>= k)
     | lam t => lam (t >>= liftM k)
   }
-  | return-left => {?}
-  | return-right => {?}
-  | >>=-assoc => {?}
+  | return-left {A B : \Set} (a : A) (k : A -> Term B) => idp
+  | return-right {A : \Set} (m : Term A) : m >>= return = m \elim m {
+    | app m1 m2 => rewrite (return-right m1) $ rewrite (return-right m2) idp
+    | lam m => rewrite liftM-return=return $ rewrite (return-right m) idp
+    | var v => idp
+    | unit => idp
+  }
+  | >>=-assoc {A B C : \Set} (m : Term A) (k : A -> Term B) (k' : B -> Term C) :
+  m >>= k >>= k' = m >>= (\lam x => k x >>= k') \elim m {
+    | app m1 m2 => rewrite (>>=-assoc m1 k k') $ rewrite (>>=-assoc m2 k k') idp
+    | lam m => \have
+      | p => >>=-assoc m (liftM k) (liftM k')
+      | q => extract-liftM k k' \in rewrite p $ rewrite q idp
+    | var v => idp
+    | unit => idp
+  }
+  \where {
+    \func extract-liftM {A B C : \Set} (k : A -> Term B) (k' : B -> Term C) :
+      liftM (\lam x => k x >>= k') = (\lam x => liftM k x >>= liftM k')
+      => funExt (\lam _ => Term (Maybe C)) \case \elim __ \with {
+        | nothing => idp
+        | just a => unfold liftM $ cases (k a) \with {
+          | app m1 m2 => {?}
+          | lam m => pmap lam $ \case \elim m \with {
+            | app m1 m2 => {?}
+            | lam m => {?}
+            | var v => {?}
+            | unit => idp
+          }
+          | var v => idp
+          | unit => idp
+        }
+      }
+  }
+
+\func liftM-return=return {A : \Set} : liftM {A} {A} TermMonad.return = TermMonad.return
+  => funExt (\lam _ => Term (Maybe A)) \case \elim __ \with {
+    | nothing => idp
+    | just a => idp
+  }
 
 -- 2. Определите отношение многошаговой редукции на Term.
 
-\func Red {V : \Set} (t s : Term V) : \Type => {?}
+\func Red {V : \Set} (t s : Term V) : \Type
+  | app (lam t1) t2 \as t, s => Red (t1 >>= maybe t2 var) s
+  | app t1 t2, app s1 s2 => \Sigma (Red t1 s1) (Red t2 s2)
+  | lam t, lam s => Red t s
+  | var x, var y => x = y
+  | unit, unit => \Sigma
+  | _, _ => Empty
 
 -- 3. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
 
-\func strategy {V : \Set} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) => {?}
+\func strategy {V : \Set} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s))
+  | app (lam t1) t2 => yes $ {?}
+  | lam t => \case strategy t \with {
+    | yes (s, r) => yes $ (lam s, redLam r)
+    | no n => no $ \lam (s, r) => n \case s \as s', r, idp : s = s' \with {
+      | app s'1 s'2, r1, p => rewriteF p at r1 $ \case r1
+      | lam s', r1, p => rewriteF p at r1 $ \case r1 \with {
+        | redLam r2 => (s', r2)
+      }
+      | var v, r1, p => rewriteF p at r1 $ \case r1
+      | unit, r1, p => rewriteF p at r1 $ \case r1
+    }
+  }
+  | var v => no $ \lam (s, r) => \case r
+  | unit => no $ \lam (s, r) => \case r
+  | app (app t1 t2) t3 => {?}
+  | app (var v) t => no $ \lam (s, r) => {?}
+  | app unit t => no $ \lam (s, r) => \case s \as ss, idp : s = ss \with {
+    | app ss1 ss2, p => rewriteF p at r $ \case r \with {
+      | redBeta p1 p2 => \case p1
+      | appLeft r1 p1 => \case r1
+      | appRight p1 r1 => {?}
+    }
+    | lam ss, p => rewriteF p at r $ \case r \with {
+      | redBeta p1 p2 => \case p1
+    }
+    | var v, p => rewriteF p at r $ \case r \with {
+      | redBeta p1 p2 => \case p1
+    }
+    | unit, p => rewriteF p at r $ \case r \with {
+      | redBeta p1 p2 => \case p1
+    }
+  }
+
+\func app-unit-t {V : \Set} (t' t s : Term V) (p : t' = app unit t) (p' : Red1 t s) : Empty
+  | app t'1 t'2, app t t1, s, p, kek => {?}
+  | lam t', app t t1, s, (), p'
+  | app t' t'1, lam t, s, p, p' => {?}
 
 -- 4. Докажите, что подтермы достижимого терма достижимы.
 
-\func appAccLeft {V : \Set} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
-  => {?}
+\func appAccLeft {V : \Set} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t \elim a
+  | acc f => acc $ \case \elim t, \elim __, \elim __ \with {
+    | app t t1, p0, redBeta {g} p p1 => f p0 $ {?}
+    | app t t1, app p0 p1, appLeft p2 p => {?}
+    | app t t1, app p0 p1, appRight p p2 => {?}
+    | lam t, lam p0, redLam p1 => {?}
+  }
 
 \func appAccRight {V : \Set} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 s
   => {?}
