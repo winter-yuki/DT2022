@@ -1,23 +1,49 @@
+\import Function.Meta
+\import Meta
+\import Paths.Meta
+\import lect10 (setLem)
 \import lect11
 \import Utils \hiding (transport,Or,inl,inr)
 
 -- 1. Докажите, что если A : \Prop, то Trunc A эквивалентен A.
 
-\func trunc-prop {A : \Prop} : Trunc A <-> A => {?}
+\func trunc-prop {A : \Prop} : Trunc A <-> A
+  => (\case __ \with { | trunc a => a }, trunc)
 
 -- 2. Докажите следующий закон де Моргана.
 
-\func deMorgan (A B C : \Prop) : (\Sigma A (B `Or` C)) <-> ((\Sigma A B) `Or` (\Sigma A C)) => {?}
+\func deMorgan (A B C : \Prop) : (\Sigma A (B `Or` C)) <-> ((\Sigma A B) `Or` (\Sigma A C))
+  => (
+    \case __ \with {
+      | (a,o) => \case o \with {
+        | inl b => inl (a, b)
+        | inr c => inr (a, c)
+      }
+    }
+  ,
+    \case __ \with {
+      | inl (a, b) => (a, inl b)
+      | inr (a, c) => (a, inr c)
+    }
+  )
 
 -- 3. Определите элиминатор для Or через Or-rec, не используя паттерн матчинг на Or.
 
 \func Or-elim {A B : \Prop} (C : Or A B -> \Prop)
               (f : \Pi (x : A) -> C (inl x)) (g : \Pi (y : B) -> C (inr y))
-              (p : A `Or` B) : C p => {?}
+  (p : A `Or` B) : C p
+  => Or-rec
+      (\lam x => \let
+        | eq : C p = C (inl x) => pmap C $ Path.inProp p (inl x)
+        | fx => f x \in {?})
+      (\lam y => \let
+        | eq : C p = C (inr y) => pmap C $ Path.inProp p (inr y)
+        | gy => g y \in rewrite eq gy)
+      p
 
 -- 4. Докажите, что тип утверждений является множеством.
 
-\func prop-isSet : isSet \Prop => {?}
+\func prop-isSet : isSet \Prop => setLem (=) {?} {?} {?}
 
 -- 5. Докажите, что функции Prop1-to-Prop2 и Prop2-to-Prop1 взаимно обратны и, как следствие, что Prop1 = Prop2.
 
