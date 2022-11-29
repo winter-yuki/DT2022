@@ -1,6 +1,7 @@
 \import Function.Meta
 \import Meta
 \import Paths.Meta
+\import lect05 (funExt)
 \import lect10 (setLem)
 \import lect11
 \import Utils \hiding (transport,Or,inl,inr)
@@ -35,7 +36,7 @@
   => Or-rec
       (\lam x => \let
         | eq : C p = C (inl x) => pmap C $ Path.inProp p (inl x)
-        | fx => f x \in {?})
+        | fx => f x \in rewrite eq fx)
       (\lam y => \let
         | eq : C p = C (inr y) => pmap C $ Path.inProp p (inr y)
         | gy => g y \in rewrite eq gy)
@@ -43,9 +44,19 @@
 
 -- 4. Докажите, что тип утверждений является множеством.
 
-\func prop-isSet : isSet \Prop => setLem (=) {?} {?} {?}
+\func prop-isSet : isSet \Prop => setLem
+    {\Prop}
+    (\lam P Q => \case Prop1-to-Prop2 P, Prop1-to-Prop2 Q \with {
+      | (P, p'), (Q, q') => \Sigma (eq : P = Q) (p' = rewrite eq q')
+    })
+    (\lam P Q => \lam x y => {?})
+    (\lam P => {?})
+    {?}
 
 -- 5. Докажите, что функции Prop1-to-Prop2 и Prop2-to-Prop1 взаимно обратны и, как следствие, что Prop1 = Prop2.
+
+\func inv {P : \Prop} : Prop2-to-Prop1 (Prop1-to-Prop2 P) = P
+  => unfold (Prop2-to-Prop1, Prop1-to-Prop2) {?}
 
 -- Можно сделать только одно из упражнений 6a,6b на выбор.
 -- 6a. Тип С называется когенератором, если для любых множеств A и B и любых функция f,g : A -> B верно, что если h `o` f = h `o` g для всех h : B -> C, то f = g.
@@ -55,7 +66,7 @@
 
 \func isCogenerator (C : \Type) => \Pi {A B : \Set} (f g : A -> B) (p : \Pi (h : B -> C) -> h `o` f = h `o` g) -> f = g
 
-\func PropIsCogenerator : isCogenerator \Prop => {?}
+\func PropIsCogenerator : isCogenerator \Prop => unfold isCogenerator {?}
 
 -- 6b. Тип X называется инъективным, если для любой функции f : A -> X и любой инъекции i : A -> B сущесвует функция l : B -> X такая, что l `o` i = f.
 --     Докажите, что \Prop инъективен.
@@ -64,7 +75,7 @@
 
 \func isInjective (X : \Type) => \Pi {A B : \Type} (f : A -> X) (i : A -> B) (p : isInj i) -> \Sigma (l : B -> X) (l `o` i = f)
 
-\func Prop-isInjective : isInjective \Prop => {?}
+\func Prop-isInjective : isInjective \Prop => unfold isInjective {?}
 
 -- Можно сделать только одно из упражнений 7a,7b на выбор.
 -- 7a. Докажите, что (Bool = Bool) = Bool.
